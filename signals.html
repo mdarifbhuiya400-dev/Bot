@@ -1,103 +1,81 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signals Dashboard - Quotex Binary Options Signals Bot</title>
-    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-</head>
-<body>
-    <div class="container-fluid py-3">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 rounded">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/">Quotex Binary Options Bot</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav">
-                        <li class="nav-item">
-                            <a class="nav-link" href="/">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/users">Users</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="/signals">Signals</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
+// main.ts
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { Bot, InlineKeyboard, webhookCallback } from "https://deno.land/x/grammy@v1.23.0/mod.ts";
 
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h2>Recent Signals</h2>
-                        <div class="stats">
-                            <span class="badge bg-primary">Total: {{ signals|length }}</span>
-                            <span class="badge bg-success">CALL: {{ signals|selectattr('signal_type', 'eq', 'CALL (UP)')|list|length }}</span>
-                            <span class="badge bg-danger">PUT: {{ signals|selectattr('signal_type', 'eq', 'PUT (DOWN)')|list|length }}</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Pair</th>
-                                        <th>Signal</th>
-                                        <th>Timeframe</th>
-                                        <th>Entry Price</th>
-                                        <th>Expected Price</th>
-                                        <th>Probability</th>
-                                        <th>Created</th>
-                                        <th>User</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for signal in signals %}
-                                    <tr>
-                                        <td>{{ signal.id }}</td>
-                                        <td>{{ signal.pair }}</td>
-                                        <td>
-                                            {% if "CALL" in signal.signal_type %}
-                                            <span class="badge bg-success">{{ signal.signal_type }} ⬆️</span>
-                                            {% else %}
-                                            <span class="badge bg-danger">{{ signal.signal_type }} ⬇️</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ signal.timeframe }}</td>
-                                        <td>{{ signal.entry_price }}</td>
-                                        <td>{{ signal.expected_price }}</td>
-                                        <td>{{ signal.win_probability }}</td>
-                                        <td>{{ signal.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                                        <td>
-                                            {% if signal.user %}
-                                            {{ signal.user.username or signal.user.id }}
-                                            {% else %}
-                                            <span class="text-muted">System</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="9" class="text-center">No signals found</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+// ========== BOT CONFIG ==========
+const BOT_TOKEN = Deno.env.get("BOT_TOKEN");
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN not set");
+const bot = new Bot(BOT_TOKEN);
 
-    <footer class="bg-dark text-light text-center p-3 mt-5">
-        <p>&copy; 2025 Quotex Binary Options Signals Bot | Admin Panel</p>
-    </footer>
-</body>
-</html>
+// Store subscribed users in memory (for deploy, consider KV DB)
+const subscribers = new Set<number>();
+
+// ========== SIGNAL GENERATOR ==========
+function generateSignal() {
+  const pairs = [
+    "🇺🇸 USD/JPY 🇯🇵","🇪🇺 EUR/USD 🇺🇸","🇬🇧 GBP/USD 🇺🇸","🇦🇺 AUD/USD 🇺🇸","🇨🇭 USD/CHF 🇨🇭",
+    "🇨🇦 USD/CAD 🇨🇦","🇳🇿 NZD/USD 🇺🇸","XAU/USD (Gold)","BTC/USDT (Crypto)","ETH/USDT (Crypto)"
+  ];
+
+  const pair = pairs[Math.floor(Math.random() * pairs.length)];
+  const side = Math.random() > 0.5 ? "BUY" : "SELL";
+
+  const now = new Date();
+  const utc = now.toISOString().replace("T", " ").substring(0, 19) + " UTC";
+
+  return (
+    `⚡️ OTC Signal\n` +
+    `📊 Market: ${pair}\n` +
+    `📌 Type: ${side}\n` +
+    `🎯 Entry: ${now.toLocaleTimeString()}\n` +
+    `⏱️ Expiry: 1 Minute (Quotex)\n` +
+    `🕒 Time: ${now.toLocaleString("en-GB", { timeZone: "Asia/Dhaka" })} BST\n` +
+    `🌍 UTC: ${utc}\n` +
+    `🔖 Tags: #Quotex #OTC #Binary`
+  );
+}
+
+// ========== BOT COMMANDS ==========
+bot.command("start", async (ctx) => {
+  subscribers.add(ctx.chat.id); // add to subscribers
+  const kb = new InlineKeyboard().text("📡 Get Signal", "get-signal");
+  await ctx.reply("✅ Welcome! You are subscribed to Auto Signals.\nClick below for instant signal:", { reply_markup: kb });
+});
+
+bot.command("help", (ctx) =>
+  ctx.reply("Commands:\n/start - Subscribe\n/help - Show help\n")
+);
+
+// Button handler (manual signal)
+bot.callbackQuery("get-signal", async (ctx) => {
+  const signal = generateSignal();
+  await ctx.answerCallbackQuery();
+  await ctx.reply(signal);
+});
+
+// ========== AUTO BROADCAST ==========
+async function autoBroadcast() {
+  const signal = generateSignal();
+  for (const chatId of subscribers) {
+    try {
+      await bot.api.sendMessage(chatId, signal);
+    } catch (err) {
+      console.error("Send failed:", err);
+    }
+  }
+}
+
+// Run broadcast every 2 minutes
+setInterval(autoBroadcast, 2 * 60 * 1000);
+
+// ========== DEPLOY WEBHOOK ==========
+const handleUpdate = webhookCallback(bot, "std/http");
+serve(async (req: Request) => {
+  const url = new URL(req.url);
+
+  if (req.method === "POST" && url.pathname === "/webhook") {
+    return await handleUpdate(req);
+  }
+
+  return new Response("Bot running with auto-broadcast...", { status: 200 });
+});
