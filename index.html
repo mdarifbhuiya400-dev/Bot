@@ -1,80 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="bn">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hello, Deno</title>
-  <link rel="preload" href="https://demo-styles.deno.deno.net/fonts/Moranga-Regular.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="https://demo-styles.deno.deno.net/fonts/Moranga-Medium.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="https://demo-styles.deno.deno.net/fonts/Recursive_Variable.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="https://demo-styles.deno.deno.net/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Real Screenshot Analyzer</title>
   <style>
-    img {
-      display: inline-block;
-      vertical-align: middle;
-    }
+    body { font-family: sans-serif; background: #111; color: #eee;
+           display: flex; flex-direction: column; align-items: center; padding: 20px;}
+    #preview { width: 300px; height: 200px; border: 2px dashed #555;
+               display: flex; justify-content: center; align-items: center; margin: 20px; }
+    #preview img { max-width: 100%; max-height: 100%; }
+    #result { margin-top: 20px; background: #222; padding: 10px; border-radius: 5px; width: 300px; }
+    button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
   </style>
 </head>
-
 <body>
-    <main>
-      <section>
-        <a href="https://deno.com/deploy">
-        </a>
-      <h1>
-        <p>
-          Hello, Deno!
-        </p>
-      </h1>
-      <p>
-        This little example is being served by <a href="https://deno.com/">Deno</a>.
-        You can run it locally or in porduction on <a href="https://deno.com/deploy">Deno Deploy</a> or other hosting platforms.
-      </p>
-      <ul>
-        <li>Run it locally with<code>deno task dev</code></li>
-        <li>Deploy it to <a href="https://deno.com/deploy">Deno Deploy</a> via the CLI by running<code>deno deploy</code></li>
-        <li>Run it locally and share it publically by running <code>deno deploy --connected</code></li>
-      </ul>
-    </section>
-      <hr>
-    <section>
-      <h2>What's next?</h2>
-      <p>
-        You can clone this example and deploy it to Deno Deploy in just a few clicks
-        <a href="https://app.deno.com/new?clone=https://github.com/denoland/examples&path=hello-world"><img src="https://deno.com/button" alt="Deploy on Deno"/></a>
-      </p>
-      <ul>
-        <li>
-          <a href="https://docs.deno.com/examples">More examples in the Deno Docs</a>
-        </li>
-        <li>
-          <a href="https://deno.com/deploy">Deno Deploy Early Access</a>
-        </li>
-      </ul>
-    </section>
-    </main>
-    <hr>
-    <footer>
-      <section>
-      <ul class="flex-btwn">
-        <li>
-          <a href="https://deno.com">BlueSky</a>
-        </li>
-        <li>
-          <a href="https://deno.com">Twitter</a>
-        </li>
-        <li>
-          <a href="https://deno.com">YouTube</a>
-        </li>
-        <li>
-          <a href="https://deno.com">Newsletter</a>
-        </li>
-        <li>
-          <a href="https://deno.com">Deno</a>
-        </li>
-      </ul>
-      </section>
-    </footer>
+  <h1>Real Screenshot Analyzer</h1>
+  <input type="file" id="fileInput" accept="image/*"/>
+  <div id="preview">Upload Image Here</div>
+  <button id="analyzeBtn">Analyze</button>
+  <div id="result"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview   = document.getElementById('preview');
+    const resultDiv = document.getElementById('result');
+    let selectedFile = null;
+
+    fileInput.addEventListener('change', e => {
+      selectedFile = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = ev => {
+        preview.innerHTML = `<img src="\${ev.target.result}" />`;
+      };
+      reader.readAsDataURL(selectedFile);
+    });
+
+    document.getElementById('analyzeBtn').addEventListener('click', () => {
+      if (!selectedFile) {
+        alert('প্রথমে ছবি আপলোড করুন');
+        return;
+      }
+      resultDiv.innerHTML = 'Analyzing...';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      fetch('/analyze', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          resultDiv.innerHTML = `Error: \${data.error}`;
+        } else {
+          resultDiv.innerHTML = `
+            <p><strong>Prediction:</strong> \${data.prediction} (\${data.confidence}%)</p>
+            <p><strong>Reason:</strong> \${data.reason}</p>
+          `;
+        }
+      })
+      .catch(err => {
+        resultDiv.innerHTML = 'Request failed';
+        console.error(err);
+      });
+    });
+  </script>
 </body>
 </html>
